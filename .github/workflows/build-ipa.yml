@@ -11,6 +11,11 @@ name: Build IPA
 #   MIRROR_ZIP_URL    direct https link to a .zip of just those files (data/manifest.json, b/8b0b5899ed/game.wasm,
 #                     b/8b0b5899ed/shaders/), kept private (use a link only you have)
 #
+#   MIRROR_RELEASE_REPO + MIRROR_RELEASE_TOKEN
+#                     the easiest from a phone: put mirror.zip (same contents as above) in a release of a PRIVATE
+#                     repo of yours, e.g. you/game-files. REPO is that name; TOKEN is a fine-grained token with
+#                     read access to that repo's Contents.
+#
 # The files are used only inside the job and are not put in the IPA. The URL is a secret, so it is masked in logs
 # and is NOT written into the app (the IPA is built with --mirror, not with the server address).
 
@@ -74,6 +79,8 @@ jobs:
         env:
           GAME_SERVER_URL: ${{ secrets.GAME_SERVER_URL }}
           MIRROR_ZIP_URL: ${{ secrets.MIRROR_ZIP_URL }}
+          MIRROR_RELEASE_REPO: ${{ secrets.MIRROR_RELEASE_REPO }}
+          MIRROR_RELEASE_TOKEN: ${{ secrets.MIRROR_RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           cd app
@@ -81,8 +88,21 @@ jobs:
           mkdir -p Build/Inputs/mirror
           if [ -n "${GAME_SERVER_URL:-}" ]; then
             /usr/bin/python3 Scripts/fetch_game_files.py --server "$GAME_SERVER_URL" --out Build/Inputs/mirror
-          elif [ -n "${MIRROR_ZIP_URL:-}" ]; then
-            curl -fL --retry 3 -o "$RUNNER_TEMP/mirror.zip" "$MIRROR_ZIP_URL"
+          elif [ -n "${MIRROR_ZIP_URL:-}" ] || [ -n "${MIRROR_RELEASE_REPO:-}" ]; then
+            rm -f "$RUNNER_TEMP/mirror.zip"
+            if [ -n "${MIRROR_ZIP_URL:-}" ]; then
+              curl -fL --retry 3 -o "$RUNNER_TEMP/mirror.zip" "$MIRROR_ZIP_URL"
+            else
+              # Newest release of the private repo; its asset must be named mirror.zip.
+              GH_TOKEN="$MIRROR_RELEASE_TOKEN" gh release download --repo "$MIRROR_RELEASE_REPO" \
+                --pattern mirror.zip --dir "$RUNNER_TEMP" --clobber
+            fi
+            # A page link (a "click to download" page) gives HTML, not a zip: say so instead of failing in unzip.
+            if ! unzip -tqq "$RUNNER_TEMP/mirror.zip" >/dev/null 2>&1; then
+              echo "::error::The download is not a zip file (it is $(wc -c < "$RUNNER_TEMP/mirror.zip") bytes). The link is probably a web page, not a direct download. Open it in a private tab: it must start downloading mirror.zip straight away. Use the download button's own address."
+              head -c 300 "$RUNNER_TEMP/mirror.zip" | tr -c '[:print:]\n' '.' || true
+              exit 1
+            fi
             rm -rf "$RUNNER_TEMP/mirror-extract"
             unzip -q "$RUNNER_TEMP/mirror.zip" -d "$RUNNER_TEMP/mirror-extract"
             rm -f "$RUNNER_TEMP/mirror.zip"
@@ -92,7 +112,7 @@ jobs:
             rm -rf Build/Inputs/mirror
             mv "$(dirname "$(dirname "$manifest")")" Build/Inputs/mirror
           else
-            echo "::error::Add a repository secret named GAME_SERVER_URL or MIRROR_ZIP_URL (see the top of this workflow file)."
+            echo "::error::Add a repository secret: GAME_SERVER_URL, MIRROR_ZIP_URL, or MIRROR_RELEASE_REPO with MIRROR_RELEASE_TOKEN (see the top of this workflow file)."
             exit 1
           fi
           /usr/bin/python3 Scripts/check_game_files.py --mirror Build/Inputs/mirror
