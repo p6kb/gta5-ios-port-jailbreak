@@ -126,6 +126,8 @@ targets:
         PGDefaultAssetServer: ""
         # The Lite build for iPhones with little memory (build_ipa.sh --lite).
         PGLiteMode: false
+        # TrollStore / Dopamine build (build_ipa.sh --trollstore): raises the memory limit and tries JIT at launch.
+        PGTrollStore: false
         # The in-app profiler (Source/NativeThreadCPU.c, GTA-169): the threads whose busiest functions go into the log.
         PGProfileThreads: "Headless mixer,RenderThread,gta.engine.main,Dependency,gta5port.metal,main (UI)"
         # The app folder (logs) is visible in the Files app.

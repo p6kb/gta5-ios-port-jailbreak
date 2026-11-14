@@ -46,6 +46,8 @@
 	<string></string>
 	<key>PGLiteMode</key>
 	<false/>
+	<key>PGTrollStore</key>
+	<false/>
 	<key>PGProfileThreads</key>
 	<string>Headless mixer,RenderThread,gta.engine.main,Dependency,gta5port.metal,main (UI)</string>
 	<key>UIApplicationSceneManifest</key>

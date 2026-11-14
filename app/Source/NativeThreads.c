@@ -30,6 +30,14 @@ void pg_engine_thread_attributes(pthread_attr_t *attrs) {
 //   user-initiated (as now): everything else (job workers, audio, streaming, physics, particles).
 // Called by each engine thread once it has its name.
 void pg_engine_thread_qos(const char *name) {
+  // The sound mixer is light but must never wait: when the game slows down (a hot phone, heavy streaming) a mixer
+  // that is late leaves the audio ring empty and the sound stutters. It always runs at user-interactive, whatever
+  // PG_QOS_MAP says; PG_MIXER_QOS=off turns this off.
+  if (name && (strstr(name, "RAGE Audio") || strstr(name, "Mix Thread") || strstr(name, "mixer"))) {   // "[RAGE Audio] Mix Thread", "[RAGE Audio] - Engine Thread"
+    const char *off = getenv("PG_MIXER_QOS");
+    if (!(off && !strcmp(off, "off"))) pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+    return;
+  }
   static int map = -1;
   if (map < 0) { const char *v = getenv("PG_QOS_MAP"); map = v && atoi(v) == 1; if (map) pg_log("Engine thread classes: per thread (PG_QOS_MAP=1)."); }
   if (!map || !name) return;

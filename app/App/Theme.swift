@@ -12,6 +12,8 @@ enum Theme {
         return "v\(info?["CFBundleShortVersionString"] as? String ?? "?")" + (isLite ? " Lite" : "")
     }()
     /// The Lite build for iPhones with little memory: Info.plist PGLiteMode (build_ipa.sh --lite), or PG_LITE=1.
+    /// A TrollStore / TrollStore Lite / Dopamine build: Info.plist PGTrollStore (build_ipa.sh --trollstore).
+    static let isTrollStore: Bool = (Bundle.main.object(forInfoDictionaryKey: "PGTrollStore") as? Bool ?? false)
     static let isLite: Bool = (Bundle.main.object(forInfoDictionaryKey: "PGLiteMode") as? Bool ?? false)
         || (ProcessInfo.processInfo.environment["PG_LITE"].map { $0 != "0" } ?? false)
     static let accent = UIColor(red: 1.0, green: 0.62, blue: 0.18, alpha: 1)        // sunset orange

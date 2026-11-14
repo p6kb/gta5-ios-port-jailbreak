@@ -226,9 +226,11 @@ final class GameSettings {
         get { defaults.bool(forKey: "airplaneRightStick") }
         set { defaults.set(newValue, forKey: "airplaneRightStick") }
     }
-    /// Lower the frame rate while the phone is hot (NativePortViewController.thermalChanged). Off by default.
+    /// Lower the frame rate while the phone is hot (NativePortViewController.thermalChanged). On by default: a hot phone
+    /// that is allowed to run uncapped swings between 60 and 15 FPS and the sound stutters with it. A choice made in
+    /// Settings is kept.
     var steadyWhenHot: Bool {
-        get { defaults.bool(forKey: "steadyWhenHot") }
+        get { defaults.object(forKey: "steadyWhenHot") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "steadyWhenHot") }
     }
     /// Graphics › Sharper upscaling (MetalFX), off by default: it costs some GPU time.

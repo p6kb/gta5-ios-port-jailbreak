@@ -1226,6 +1226,9 @@ final class NativePortViewController: UIViewController, MTKViewDelegate {
             // Players' own music (Spotify, Apple Music) keeps playing alongside the game instead of stopping it (GTA-132).
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setPreferredSampleRate(48000)
+            // A longer hardware buffer (about 43 ms, 2048 frames) gives a late mixer more slack before a gap is heard;
+            // the extra latency is not noticeable in a game. The system may choose another value.
+            try? session.setPreferredIOBufferDuration(2048.0 / 48000.0)
             try session.setActive(true)
             let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 2)!
             let source = AVAudioSourceNode(format: format) { _, _, count, audioBufferList in
@@ -1475,7 +1478,7 @@ final class NativePortViewController: UIViewController, MTKViewDelegate {
         if !GameFolder.archivesFound.isEmpty { files += "; archives: " + GameFolder.archivesFound.map(\.lastPathComponent).joined(separator: ", ") }
         let free = (try? GameFolder.appFolder.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage).flatMap { $0 }
         let settings = GameSettings.shared
-        appendLog("Startup: game files \(files). Free storage \(free.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unknown"). Memory limit \(settings.tier.memoryLimitMB) MB (increased memory limit \(DeviceTier.increasedMemoryGranted.map { $0 ? "granted" : "not granted" } ?? "unknown")). \(settings.gameMode.title), \(settings.graphicsPreset.title).\(GameFolder.insideLiveContainer ? " Inside LiveContainer." : "")")
+        appendLog("Startup: game files \(files). Free storage \(free.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "unknown"). Memory limit \(settings.tier.memoryLimitMB) MB (increased memory limit \(DeviceTier.increasedMemoryGranted.map { $0 ? "granted" : "not granted" } ?? "unknown")). \(settings.gameMode.title), \(settings.graphicsPreset.title).\(GameFolder.insideLiveContainer ? " Inside LiveContainer." : "") \(Theme.isTrollStore ? "TrollStore build: " + String(cString: pg_privileged_summary()) : "")")
     }
     @objc private func installChanged() {
         guard !engineStarted else { return }

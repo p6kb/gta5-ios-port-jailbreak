@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- For TrollStore / TrollStore Lite and Dopamine (build_ipa.sh --trollstore). TrollStore keeps whatever
+	     entitlements the binary is signed with, so none of these are dropped the way a sideloader drops them. -->
+
+	<!-- More memory (the same two as Full.entitlements). -->
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
+	<true/>
+	<!-- Lets the app call memorystatus_control on itself (Source/NativePrivileged.c raises its own Jetsam limit). -->
+	<key>com.apple.private.memorystatus</key>
+	<true/>
+
+	<!-- JIT (used by the Blink x86 emulator that runs .asi script mods; the game engine itself is compiled ahead of time). -->
+	<key>get-task-allow</key>
+	<true/>
+	<key>dynamic-codesigning</key>
+	<true/>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+</dict>
+</plist>

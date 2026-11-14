@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -27,6 +28,8 @@ TARGETS = {'iphoneos': 'arm64-apple-ios16.0', 'iphonesimulator': 'arm64-apple-io
 # Mac Catalyst builds with the macOS SDK, and Xcode names its platform macosx (the library folder).
 SDK = {'maccatalyst': 'macosx'}
 FLAGS = ['-O3', '-DNDEBUG', '-w', '-D_GNU_SOURCE', f'-I{source}']
+# TrollStore / Dopamine build (build_ipa.sh --trollstore): Blink with its JIT (the flags are part of the build key below).
+if os.environ.get('PG_BLINK_JIT') == '1': FLAGS.append('-DPG_BLINK_JIT')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sdk', action='append', choices=list(TARGETS))

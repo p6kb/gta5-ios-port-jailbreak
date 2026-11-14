@@ -1,7 +1,11 @@
 #ifndef BLINK_CONFIG_H_
 #define BLINK_CONFIG_H_
 
+// JIT is compiled in only for the TrollStore/Dopamine build (build_ipa.sh --trollstore passes -DPG_BLINK_JIT).
+// If the system refuses executable memory, Blink turns its JIT off by itself and keeps interpreting.
+#ifndef PG_BLINK_JIT
 #define DISABLE_JIT
+#endif
 // #define DISABLE_X87
 #define DISABLE_THREADS
 #define DISABLE_SOCKETS

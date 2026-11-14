@@ -5,6 +5,8 @@
 #                                                                    the folder with data/manifest.json and b/)
 #   The app asks for the extra-memory entitlements; sideloaders drop what an account can't grant.
 #   --free  leave them out, for an installer that refuses the app (--paid is still accepted)
+#   --trollstore  for TrollStore / TrollStore Lite / Dopamine: App/TrollStore.entitlements (more memory, JIT) and
+#                 Blink's JIT. TrollStore keeps every entitlement; install GTA5Port-TrollStore.ipa with it.
 #   --lite  the Lite build for iPhones with little memory (about 4 GB of RAM): GTA5Port-Lite.ipa
 # Needs: an Apple Silicon Mac, Xcode, xcodegen.
 set -euo pipefail
@@ -14,14 +16,17 @@ if [ "${1:-}" = "--mirror" ]; then MIRROR="$(cd "${2:?Usage: ./build_ipa.sh --mi
 else SERVER="${1:?Usage: ./build_ipa.sh https://your-server [--paid]  or  ./build_ipa.sh --mirror /path [--free]}"; shift; fi
 ENTITLEMENTS=App/Full.entitlements
 LITE=false
+TROLL=false
 for option in "$@"; do
   case "$option" in
     --free) ENTITLEMENTS=App/Free.entitlements ;;
     --lite) LITE=true ;;
+    --trollstore) TROLL=true; ENTITLEMENTS=App/TrollStore.entitlements ;;
   esac
 done
 IPA=GTA5Port.ipa
 $LITE && IPA=GTA5Port-Lite.ipa
+$TROLL && IPA=GTA5Port-TrollStore.ipa && export PG_BLINK_JIT=1
 cd "$(dirname "$0")/app"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu)}"
 # The system Python runs natively on Apple Silicon (a Rosetta Python would
@@ -37,6 +42,7 @@ fi
 # The app opens with your server already filled in (without one, it asks where your files are).
 /usr/libexec/PlistBuddy -c "Set :PGDefaultAssetServer $SERVER" App/Info.plist
 /usr/libexec/PlistBuddy -c "Set :PGLiteMode $LITE" App/Info.plist
+/usr/libexec/PlistBuddy -c "Set :PGTrollStore $TROLL" App/Info.plist
 
 # Optional profile-guided optimization (GTA-172): PG_PGO_PROFILE is an .profdata from Scripts/pgo.sh, PG_ORDER_FILE a
 # list of hot functions the linker places together. Without them the build is as before.

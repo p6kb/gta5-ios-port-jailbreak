@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### TrollStore / TrollStore Lite / Dopamine
+- **`./build_ipa.sh ... --trollstore`** builds `GTA5Port-TrollStore.ipa` with `App/TrollStore.entitlements` (increased memory limit, extended addressing, `com.apple.private.memorystatus`, JIT entitlements). TrollStore keeps every entitlement, so nothing is dropped.
+- **Raises its own memory limit** at launch (70% of RAM on 3 GB phones, 80% on larger ones) through `memorystatus_control`; the game's streaming budget follows. Result is in the startup log line ("TrollStore build: memory: ...").
+- **JIT** for the Blink emulator that runs `.asi` mods, compiled in only for this build. It turns on when the system allows executable memory (Dopamine, or already-debugged processes) and otherwise falls back to the interpreter. The game engine itself is compiled ahead of time and does not use JIT.
+
+### Sound and frame rate
+- **The game's audio threads (RAGE Audio mix and engine) always run at the highest QoS**, and the audio buffer is longer (about 43 ms), so a late frame no longer leaves a gap in the sound.
+- **"Steady frame rate when hot" is now on by default** (a choice you made in Settings is kept). A hot phone that is left uncapped swings between 60 and 15 FPS.
+
 ## v1.5.2
 
 Lighter and steadier, the same version for iPhone and Mac.
