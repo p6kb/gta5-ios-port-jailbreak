@@ -1,0 +1,133 @@
+name: Build IPA
+
+# Run it from the Actions tab: "Build IPA" > "Run workflow" and pick a variant.
+#
+# The build needs a small part of YOUR OWN game files (the engine game.wasm, data/manifest.json and the shaders
+# folder, about 75 MB). Everything else streams to the phone while you play. Give the workflow ONE of these, as a
+# repository secret (Settings > Secrets and variables > Actions > New repository secret):
+#
+#   GAME_SERVER_URL   https address of a server of yours that serves the folder holding data/ and b/
+#                     (it must be reachable from the internet: a tailnet-only address will not work from GitHub)
+#   MIRROR_ZIP_URL    direct https link to a .zip of just those files (data/manifest.json, b/8b0b5899ed/game.wasm,
+#                     b/8b0b5899ed/shaders/), kept private (use a link only you have)
+#
+# The files are used only inside the job and are not put in the IPA. The URL is a secret, so it is masked in logs
+# and is NOT written into the app (the IPA is built with --mirror, not with the server address).
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Which build"
+        type: choice
+        default: trollstore
+        options:
+          - trollstore   # TrollStore / TrollStore Lite / Dopamine: more memory + JIT entitlements
+          - full         # extra-memory entitlements, for SideStore/AltStore with a paid account or GetMoreRam
+          - free         # no special entitlements, for an installer that refuses the app
+          - lite         # for iPhones with about 4 GB of RAM or less
+      jobs:
+        description: "Parallel compile jobs (the engine is huge: lower this if the runner runs out of memory)"
+        type: string
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Apple Silicon runner: the build scripts refuse to run on anything else.
+    runs-on: macos-15
+    # A GitHub job may run at most 6 hours. The first build compiles the whole generated engine and is slow.
+    timeout-minutes: 355
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Pick Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Show the machine
+        run: |
+          uname -m
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          cmake --version | head -1
+          df -h / | tail -1
+
+      # The downloaded build tools (wabt, simde, opus, bcdec...) land in app/Tools. Reusing them saves a few minutes.
+      - name: Cache build tools
+        uses: actions/cache@v4
+        with:
+          path: app/Tools
+          key: tools-${{ runner.os }}-${{ hashFiles('app/Scripts/**', 'app/project.yml') }}
+          restore-keys: |
+            tools-${{ runner.os }}-
+
+      - name: Get the game files the build needs
+        env:
+          GAME_SERVER_URL: ${{ secrets.GAME_SERVER_URL }}
+          MIRROR_ZIP_URL: ${{ secrets.MIRROR_ZIP_URL }}
+        run: |
+          set -euo pipefail
+          cd app
+          rm -rf Build/Inputs/mirror
+          mkdir -p Build/Inputs/mirror
+          if [ -n "${GAME_SERVER_URL:-}" ]; then
+            /usr/bin/python3 Scripts/fetch_game_files.py --server "$GAME_SERVER_URL" --out Build/Inputs/mirror
+          elif [ -n "${MIRROR_ZIP_URL:-}" ]; then
+            curl -fL --retry 3 -o "$RUNNER_TEMP/mirror.zip" "$MIRROR_ZIP_URL"
+            rm -rf "$RUNNER_TEMP/mirror-extract"
+            unzip -q "$RUNNER_TEMP/mirror.zip" -d "$RUNNER_TEMP/mirror-extract"
+            rm -f "$RUNNER_TEMP/mirror.zip"
+            # The zip may hold the files inside a folder: use the folder that has data/manifest.json.
+            manifest="$(find "$RUNNER_TEMP/mirror-extract" -type f -path '*/data/manifest.json' | head -1)"
+            if [ -z "$manifest" ]; then echo "::error::No data/manifest.json inside the zip."; exit 1; fi
+            rm -rf Build/Inputs/mirror
+            mv "$(dirname "$(dirname "$manifest")")" Build/Inputs/mirror
+          else
+            echo "::error::Add a repository secret named GAME_SERVER_URL or MIRROR_ZIP_URL (see the top of this workflow file)."
+            exit 1
+          fi
+          /usr/bin/python3 Scripts/check_game_files.py --mirror Build/Inputs/mirror
+
+      - name: Build the IPA
+        env:
+          VARIANT: ${{ inputs.variant }}
+          JOBS: ${{ inputs.jobs }}
+        run: |
+          set -euo pipefail
+          case "$VARIANT" in
+            trollstore) FLAG="--trollstore" ;;
+            free)       FLAG="--free" ;;
+            lite)       FLAG="--lite" ;;
+            *)          FLAG="" ;;
+          esac
+          chmod +x build_ipa.sh
+          ./build_ipa.sh --mirror app/Build/Inputs/mirror $FLAG
+          ls -lh *.ipa
+
+      - name: Keep the IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA5Port-${{ inputs.variant }}-ipa
+          path: "*.ipa"
+          if-no-files-found: error
+          retention-days: 14
+
+      # Only when something went wrong: the compiler's log, to see why.
+      - name: Keep the build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            app/Build/xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7
